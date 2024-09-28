@@ -5,12 +5,40 @@ local action_state = require('telescope.actions.state')
 local scan = require('plenary.scandir')
 local translations_module = require('nvim-sessions.translate')
 
+-- Função para criar o caminho completo de configuração
+local function get_full_config_path(base_path, relative_path)
+    -- Normaliza o caminho base
+    local function normalize_path(path)
+        -- Substitui barras invertidas por barras normais e remove barras duplicadas
+        path = path:gsub('\\', '/'):gsub('/+', '/')
+        -- Remove a barra final, se houver
+        return path:gsub('(.)/$', '%1')
+    end
+
+    -- Concatena o caminho base com o caminho relativo e normaliza o resultado
+    local full_path = normalize_path(base_path) .. '/' .. normalize_path(relative_path)
+
+    -- Retorna o caminho completo normalizado
+    return full_path
+end
+
+-- Exemplo de uso
+local nvim_base_path = vim.fn.stdpath('config')
+local plugin_path = "nvim-sessions/lua/nvim-sessions"
+
+print("base path " .. nvim_base_path)
+
+local config_path = get_full_config_path(nvim_base_path, plugin_path)
+print("config path " .. config_path)  -- Exibe o caminho completo de configuração do plugin
+
+
+
 local translations = {}
 
 -- Variáveis configuráveis
 local config = {
     custom_path = '/home/media/dev/projetos/.workspaces',
-    translate_path = vim.fn.stdpath('data') .. '/site/pack/packer/start/nvim-sessions/lua/nvim-sessions/',
+    translate_path = get_full_config_path(nvim_base_path, plugin_relative_path),
     language = 'en',  -- Idioma padrão
     auto_save = true, -- Salvar sessão automaticamente ao sair
     auto_load = true, -- Carregar sessão automaticamente ao iniciar
@@ -43,6 +71,10 @@ function sessions.setup(user_config)
         ]])
     end
 end
+
+
+
+
 
 
 

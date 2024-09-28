@@ -3,7 +3,7 @@ local M = {}
 -- Função para obter o caminho absoluto do diretório de traduções
 function M.get_translation_path(custom_path)
     -- Supondo que você saiba o diretório base dos plugins
-    local plugin_base_path = vim.fn.stdpath('data') .. '/site/pack/packer/start/nvim-sessions/lua/nvim-sessions/'
+    local plugin_base_path = vim.fn.stdpath('data') .. '/lazy/nvim-sessions/lua/nvim-sessions/'
     local default_path = plugin_base_path .. 'translations.json'
     
     return custom_path or default_path
