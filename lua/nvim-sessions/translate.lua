@@ -11,7 +11,7 @@ end
 
 -- Função para carregar traduções de um arquivo JSON
 local function load_translations(file_path)
-	print("arquivo de tradução ====> ".. file_path)
+
     local file = io.open(file_path, "r")
     if not file then
         return nil, "Erro ao abrir o arquivo de traduções."
@@ -26,12 +26,7 @@ end
 
 -- Função para inicializar as traduções
 function M.init_translations(custom_path, file_translate)
-	print("path")
-	print(vim.fn.stdpath('data'))
-	print(custom_path)
-	
-    --local path = M.get_translation_path(custom_path)
-    print(custom_path)
+
     local path = custom_path .. "/" .. file_translate .. ".json"
     local translations, err = load_translations(path)
     if not translations then

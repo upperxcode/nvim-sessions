@@ -39,9 +39,7 @@ end
 
 local function notify_info(msg1, msg2)
     msg2 = msg2 or ""
-    print("msg1 "..msg1)
-    print("msg2 "..msg2)
-    print(config.language)
+
     vim.notify(translate(msg1, config.language)..msg2, vim.log.levels.INFO)
 end
 

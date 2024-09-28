@@ -15,7 +15,6 @@ function ConfigPath.get_full_config_path(base_path, relative_path)
     local lazy_path = base_path .. '/lazy'
     local packer_path = base_path .. '/site/pack/packer/start'
 	
-	print("lazy ---> ".. lazy_path)
     -- Verifica qual gerenciador de plugins está presente
     local plugin_manager_path
     if vim.fn.isdirectory(lazy_path) == 1 then
