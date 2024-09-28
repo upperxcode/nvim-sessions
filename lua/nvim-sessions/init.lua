@@ -4,55 +4,53 @@ local actions = require('telescope.actions')
 local action_state = require('telescope.actions.state')
 local scan = require('plenary.scandir')
 local translations_module = require('nvim-sessions.translate')
+local ConfigPath = require('nvim-sessions.config_path')
 
--- Função para criar o caminho completo de configuração
-local function get_full_config_path(base_path, relative_path)
-    -- Normaliza o caminho base
-    local function normalize_path(path)
-        -- Substitui barras invertidas por barras normais e remove barras duplicadas
-        path = path:gsub('\\', '/'):gsub('/+', '/')
-        -- Remove a barra final, se houver
-        return path:gsub('(.)/$', '%1')
-    end
-
-    -- Concatena o caminho base com o caminho relativo e normaliza o resultado
-    local full_path = normalize_path(base_path) .. '/' .. normalize_path(relative_path)
-
-    -- Retorna o caminho completo normalizado
-    return full_path
-end
-
--- Exemplo de uso
-local nvim_base_path = vim.fn.stdpath('config')
-local plugin_path = "nvim-sessions/lua/nvim-sessions"
-
-print("base path " .. nvim_base_path)
-
-local config_path = get_full_config_path(nvim_base_path, plugin_path)
-print("config path " .. config_path)  -- Exibe o caminho completo de configuração do plugin
-
-
-
-local translations = {}
-
--- Variáveis configuráveis
 local config = {
-    custom_path = '/home/media/dev/projetos/.workspaces',
-    translate_path = get_full_config_path(nvim_base_path, plugin_relative_path),
-    language = 'en',  -- Idioma padrão
-    auto_save = true, -- Salvar sessão automaticamente ao sair
-    auto_load = true, -- Carregar sessão automaticamente ao iniciar
-    
+    custom_path = '~/.workspaces',
+    translate_path = ConfigPath.get_full_config_path(vim.fn.stdpath('data'), "nvim-sessions/lua/nvim-sessions"),
+    language = 'en',
+    auto_save = true,
+    auto_load = true,
 }
 
--- Função de configuração
+local session_base_path
+local translations
+
+local function update_session_base_path()
+    session_base_path = config.custom_path
+end
+
+local function ensure_base_path_exists()
+    if vim.fn.isdirectory(config.custom_path) == 0 then
+        vim.fn.mkdir(config.custom_path, "p")
+        vim.notify(translate("DIRECTORY_BASE_CREATED", config.language) .. config.custom_path, vim.log.levels.INFO)
+    end
+end
+
+local function notify_error(msg1, msg2)
+    msg2 = msg2 or ""
+    vim.notify(translate(msg1, config.language) .. msg2, vim.log.levels.ERROR)
+end
+
+local function translate(key, lang)
+    return translations[key] or key
+end
+
+local function notify_info(msg1, msg2)
+    msg2 = msg2 or ""
+    print("msg1 "..msg1)
+    print("msg2 "..msg2)
+    print(config.language)
+    vim.notify(translate(msg1, config.language)..msg2, vim.log.levels.INFO)
+end
+
+
 function sessions.setup(user_config)
-
-
     config = vim.tbl_extend('force', config, user_config or {})
     update_session_base_path()
+    translations = translations_module.init_translations(config.translate_path, config.language)
 
-    -- Configurar autocommands para salvar e carregar sessões automaticamente
     if config.auto_save then
         vim.cmd([[
             augroup AutoSaveSession
@@ -66,63 +64,16 @@ function sessions.setup(user_config)
         vim.cmd([[
             augroup AutoLoadSession
                 autocmd!
-                 autocmd VimEnter * lua vim.defer_fn(function() require('nvim-sessions').load_session_info() end, 100)
+                autocmd VimEnter * lua vim.defer_fn(function() require('nvim-sessions').load_session_info() end, 100)
             augroup END
         ]])
     end
 end
 
-
-
-
-
-
-
-local translations = translations_module.init_translations(config.translate_path)
-
-
-local function translate(key, lang)
-    return translations[key] or key
+function sessions.get_current_config()
+    return config
 end
 
--- Carregar traduções ao iniciar
-load_translations(config.language)
-
-
-local session_base_path
-
--- Função para atualizar o caminho base da sessão
-local function update_session_base_path()
-    session_base_path = config.custom_path
-end
-
-
-
--- Garante que o diretório base exista, criando-o se necessário
-local function ensure_base_path_exists()
-    if vim.fn.isdirectory(config.custom_path) == 0 then
-        vim.fn.mkdir(config.custom_path, "p")
-        vim.notify(translate("DIRECTORY_BASE_CREATED", config.language) .. config.custom_path, vim.log.levels.INFO)
-    end
-end
-
--- Função auxiliar para notificar erros
-local function notify_error(msg1, msg2)
-	if msg2 == nil then
-		msg2 = ""
-	end
-    vim.notify(translate(msg, config.language) .. msg2, vim.log.levels.ERROR)
-end
-
--- Função auxiliar para notificar informações
-local function notify_info(msg1, msg2)
-	if msg2 == nil then
-		msg2 = ""
-	end
-    vim.notify(translate(msg1, config.language) .. msg2, vim.log.levels.INFO)
-end
-
--- Salva informações da sessão em um arquivo oculto
 local function save_session_info()
     local session_info_path = config.custom_path .. "/.session_info"
     local file = io.open(session_info_path, "w")
@@ -139,7 +90,6 @@ local function save_session_info()
     notify_info("SESSION_INFORMATION_SAVED", session_info_path)
 end
 
--- Fecha todos os buffers abertos
 local function close_all_buffers()
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_is_loaded(buf) then
@@ -149,63 +99,6 @@ local function close_all_buffers()
     notify_info("ALL_BUFFERS_CLOSED")
 end
 
--- Função para salvar uma sessão em um diretório selecionado
-local function save_session_in_directory(selected_dir)
-    if session_base_path == config.custom_path then
-        return notify_error("ERROR_INVALID_WORKSPACE")
-    end
-
-    if not selected_dir then
-        return notify_error("ERROR_INVALID_DIRECTORY")
-    end
-
-    local session_name = vim.fn.fnamemodify(selected_dir, ":t")
-    local session_path = session_base_path .. '/' .. session_name .. '.vim'
-
-    close_all_buffers()
-    vim.cmd('cd ' .. selected_dir)
-    
-    local response = translate("RESPONSE", config.translate)
-
-    if vim.fn.input(translate("CONFIRM_ADD_CURRENT_WORKSPACE", config.translate), response):lower() == response then
-        if vim.fn.filereadable(session_path) == 0 then
-            vim.cmd('mksession! ' .. session_path)
-            notify_info("SESSION_CREATED", session_path)
-        else
-            notify_info("EXISTING_SESSION_LOADED", session_path)
-        end
-        vim.cmd('source ' .. session_path)
-        vim.g.loaded_session_path = session_path
-    end
-
-    save_session_info()
-end
-
--- Abre o navegador de arquivos do Telescope e salva a sessão
-function sessions.open_file_browser_and_save_session()
-    require('telescope').extensions.file_browser.file_browser({
-        prompt_title = translate("SELECT_DIRECTORY", config.translate),
-        cwd = vim.fn.getcwd(),
-        hidden = true,
-        grouped = true,
-        initial_mode = "normal",
-        attach_mappings = function(prompt_bufnr, map)
-            local save_session = function()
-                local current_picker = action_state.get_current_picker(prompt_bufnr)
-                local selected_dir = current_picker.finder.path
-                actions.close(prompt_bufnr)
-                save_session_in_directory(selected_dir)
-            end
-
-            map('i', '<C-p>', save_session)
-            map('n', '<C-p>', save_session)
-
-            return true
-        end,
-    })
-end
-
--- Salva a sessão diretamente com o nome da pasta atual
 function sessions.save_session()
     ensure_base_path_exists()
 
@@ -237,7 +130,6 @@ function sessions.save_session()
     save_session_info()
 end
 
--- Carrega uma sessão usando o Telescope
 function sessions.load_session()
     ensure_base_path_exists()
 
@@ -270,45 +162,6 @@ function sessions.load_session()
     }):find()
 end
 
--- Define o caminho da sessão
-function sessions.set_session_path(subfolder)
-    ensure_base_path_exists()
-    session_base_path = subfolder and config.custom_path .. '/' .. subfolder or config.custom_path
-    notify_info("NEW_SESSION_PATH", session_base_path)
-end
-
--- Carrega informações da sessão de um arquivo oculto
-function sessions.load_session_info()
-    local session_info_path = config.custom_path .. "/.session_info"
-    if vim.fn.filereadable(session_info_path) == 0 then
-        return notify_info("NO_SESSION_INFORMATION_FOUND")
-    end
-
-    local file = io.open(session_info_path, "r")
-    if not file then
-        return notify_error("ERROR_OPENING_SESSION_FILE")
-    end
-
-    local workspace_path, session_path, cwd
-    for line in file:lines() do
-        local key, value = line:match("^(%w+)=([^\n]*)")
-        if key == "workspace" then workspace_path = value end
-        if key == "session" then session_path = value end
-        if key == "cwd" then cwd = value end
-    end
-    file:close()
-
-    session_base_path = workspace_path or session_base_path
-    if cwd then vim.cmd('cd ' .. cwd) end
-
-    if session_path and vim.fn.filereadable(session_path) == 1 then
-        vim.cmd('source ' .. session_path)
-        vim.g.loaded_session_path = session_path
-        notify_info("SESSION_LOADED_FROM", session_path)
-    end
-end
-
--- Deleta uma sessão usando o Telescope
 function sessions.delete_session()
     ensure_base_path_exists()
 
@@ -350,11 +203,46 @@ function sessions.delete_session()
     }):find()
 end
 
--- Cria uma nova subpasta no caminho base
+function sessions.load_session_info()
+    local session_info_path = config.custom_path .. "/.session_info"
+    if vim.fn.filereadable(session_info_path) == 0 then
+        return notify_info("NO_SESSION_INFORMATION_FOUND")
+    end
+
+    local file = io.open(session_info_path, "r")
+    if not file then
+        return notify_error("ERROR_OPENING_SESSION_FILE")
+    end
+
+    local workspace_path, session_path, cwd
+    for line in file:lines() do
+        local key, value = line:match("^(%w+)=([^\n]*)")
+        if key == "workspace" then workspace_path = value end
+        if key == "session" then session_path = value end
+        if key == "cwd" then cwd = value end
+    end
+    file:close()
+
+    session_base_path = workspace_path or session_base_path
+    if cwd then vim.cmd('cd ' .. cwd) end
+
+    if session_path and vim.fn.filereadable(session_path) == 1 then
+        vim.cmd('source ' .. session_path)
+        vim.g.loaded_session_path = session_path
+        notify_info("SESSION_LOADED_FROM", session_path)
+    end
+end
+
+function sessions.set_session_path(subfolder)
+    ensure_base_path_exists()
+    session_base_path = subfolder and config.custom_path .. '/' .. subfolder or config.custom_path
+    notify_info("NEW_SESSION_PATH", session_base_path)
+end
+
 function sessions.create_subfolder()
     ensure_base_path_exists()
 
-    vim.ui.input({ prompt == translate("NEW_SUBFOLDER_NAME", config.translate) }, function(subfolder)
+    vim.ui.input({ prompt = translate("NEW_SUBFOLDER_NAME", config.language) }, function(subfolder)
         if not subfolder or subfolder == '' then
             return notify_error("ERROR_SUBFOLDER_NAME_NOT_PROVIDED")
         end
@@ -371,7 +259,6 @@ function sessions.create_subfolder()
     end)
 end
 
--- Lista subpastas e seleciona uma com o Telescope
 function sessions.select_subfolder_with_telescope()
     ensure_base_path_exists()
 
@@ -402,17 +289,14 @@ function sessions.select_subfolder_with_telescope()
     }):find()
 end
 
--- Função para obter o workspace atual
 function sessions.get_current_workspace()
     return session_base_path
 end
 
--- Função para obter o caminho atual
 function sessions.get_current_path()
     return vim.fn.getcwd()
 end
 
--- Função para obter o nome do diretório do projeto
 function sessions.get_project_directory_name()
     return vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
 end
