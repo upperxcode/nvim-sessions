@@ -25,6 +25,10 @@ end
 
 -- Função para inicializar as traduções
 function M.init_translations(custom_path)
+	print("path")
+	print(vim.fn.stdpath('data'))
+	print(custom_path)
+	
     --local path = M.get_translation_path(custom_path)
     print(custom_path)
     local path = custom_path

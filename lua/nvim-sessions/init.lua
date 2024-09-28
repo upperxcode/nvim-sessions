@@ -19,6 +19,8 @@ local config = {
 
 -- Função de configuração
 function sessions.setup(user_config)
+
+
     config = vim.tbl_extend('force', config, user_config or {})
     update_session_base_path()
 
